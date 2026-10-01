@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>go-replay</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 24px; font: 15px/1.5 system-ui, sans-serif;
+    background: #0f1115; color: #e6e8eb;
+  }
+  main { max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: #8b929c; margin: 0 0 24px; }
+  h2 { font-size: 15px; margin: 32px 0 12px; color: #8b929c; font-weight: 600; }
+
+  .panel { background: #171a21; border: 1px solid #242a34; border-radius: 10px; padding: 18px; }
+  .panel + .panel { margin-top: 14px; }
+
+  .cams { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+  .cam { background: #171a21; border: 1px solid #242a34; border-radius: 10px; padding: 16px; }
+  .cam.on { border-color: #1f3d2b; }
+  .cam h3 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #6b7280; flex: none; }
+  .dot.on { background: #22c55e; }
+  .dot.warn { background: #f59e0b; }
+  .cam .addr { color: #8b929c; font-size: 12px; word-break: break-all; margin: 4px 0 12px; }
+  .cam dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0; font-size: 13px; }
+  .cam dt { color: #8b929c; }
+  .cam dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  .bar { height: 4px; background: #242a34; border-radius: 2px; margin-top: 12px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0; background: #22c55e; transition: width .4s; }
+  .cam .err { color: #fca5a5; font-size: 12px; margin: 8px 0 0; }
+
+  form { display: flex; gap: 10px; flex-wrap: wrap; }
+  input[type=text] {
+    flex: 1 1 320px; padding: 11px 13px; font: 14px ui-monospace, monospace;
+    color: #e6e8eb; background: #0f1115; border: 1px solid #2b313b; border-radius: 8px;
+  }
+  input[type=text]:focus { outline: none; border-color: #3f8cff; }
+  button {
+    padding: 11px 18px; font: 600 14px system-ui, sans-serif;
+    color: #04130a; background: #22c55e; border: 0; border-radius: 8px; cursor: pointer;
+  }
+  button.wide { width: 100%; padding: 14px; font-size: 16px; }
+  button.ghost { background: #2b313b; color: #e6e8eb; }
+  button:disabled { background: #2b313b; color: #6b7280; cursor: not-allowed; }
+  button:not(:disabled):hover { filter: brightness(1.12); }
+
+  .msg { margin-top: 12px; padding: 11px 14px; border-radius: 8px; font-size: 14px; display: none; }
+  .msg.ok { display: block; background: #0d2f1b; color: #86efac; }
+  .msg.err { display: block; background: #3b1113; color: #fca5a5; }
+  .msg.wait { display: block; background: #1d2430; color: #cbd5e1; }
+
+  .hint { color: #8b929c; font-size: 13px; margin: 10px 0 0; }
+  .replay { background: #171a21; border: 1px solid #242a34; border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+  .replay header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+  .replay .id { font-weight: 600; font-family: ui-monospace, monospace; }
+  .replay .meta { color: #8b929c; font-size: 13px; }
+  .videos { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .videos figure { margin: 0; }
+  .videos figcaption { font-size: 13px; color: #8b929c; margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; }
+  video { width: 100%; border-radius: 6px; background: #000; display: block; }
+  .fallback { display: none; font-size: 12px; color: #fbbf24; margin: 6px 0 0; }
+  .failures { color: #fca5a5; font-size: 13px; margin: 12px 0 0; }
+  a { color: #7dd3fc; }
+  .empty { color: #8b929c; }
+</style>
+</head>
+<body>
+<main>
+  <h1>go-replay</h1>
+  <p class="sub">Cada câmera mantém os últimos minutos em memória. O botão salva o trecho final de todas de uma vez.</p>
+
+  <h2>Câmeras</h2>
+  <div class="cams" id="cams"></div>
+
+  <section class="panel" style="margin-top:14px">
+    <form id="add">
+      <input type="text" id="url" placeholder="rtsp://usuario:senha@192.168.1.8:554/onvif1" autocomplete="off" spellcheck="false">
+      <button type="submit" class="ghost" id="addBtn">Adicionar câmera</button>
+    </form>
+    <p class="hint">A conexão é testada antes de salvar, então isso leva alguns segundos.
+       As câmeras ficam em <code>cams.txt</code> na raiz do projeto.</p>
+    <div class="msg" id="addMsg"></div>
+  </section>
+
+  <section class="panel">
+    <button class="wide" id="save" disabled>Salvar replay</button>
+    <p class="hint" id="hint">&nbsp;</p>
+    <div class="msg" id="saveMsg"></div>
+  </section>
+
+  <h2>Replays salvos</h2>
+  <div id="replays"><p class="empty">Nenhum replay salvo ainda.</p></div>
+</main>
+
+<script>
+const el = (id) => document.getElementById(id);
+let clipSeconds = 60;
+
+const mb = (bytes) => (bytes ? (bytes / (1024 * 1024)).toFixed(1) : "0.0") + " MB";
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+function show(box, kind, text) {
+  box.className = "msg " + kind;
+  box.textContent = text;
+}
+
+function camCard(cam) {
+  const buffered = cam.buffer ? cam.buffer.buffered_seconds : 0;
+  const ready = buffered >= clipSeconds;
+  const dot = cam.connected ? (ready ? "on" : "warn") : "";
+  const state = cam.connected ? `recebendo por ${esc(cam.transport)}` : "desconectada";
+
+  return `
+    <article class="cam ${cam.connected ? "on" : ""}">
+      <h3><span class="dot ${dot}"></span>${esc(cam.name)}</h3>
+      <p class="addr">${esc(cam.url)}</p>
+      <dl>
+        <dt>Estado</dt><dd>${state}</dd>
+        <dt>Em memória</dt><dd>${buffered.toFixed(0)}s</dd>
+        <dt>Codec</dt><dd>${cam.buffer ? esc(cam.buffer.codec) : "–"}</dd>
+        <dt>Áudio</dt><dd>${cam.buffer && cam.buffer.audio ? esc(cam.buffer.audio) : "sem áudio"}</dd>
+        <dt>Quadros/s</dt><dd>${cam.buffer && cam.buffer.fps ? cam.buffer.fps.toFixed(1) : "–"}</dd>
+        <dt>Memória</dt><dd>${cam.buffer ? mb(cam.buffer.bytes) : "–"}</dd>
+        ${cam.buffer && cam.buffer.resets ? `<dt>Recomeços</dt><dd>${cam.buffer.resets}</dd>` : ""}
+      </dl>
+      <div class="bar"><i style="width:${Math.min(100, (buffered / clipSeconds) * 100)}%"></i></div>
+      ${cam.last_error ? `<p class="err">${esc(cam.last_error)}</p>` : ""}
+    </article>`;
+}
+
+async function refreshStatus() {
+  let s;
+  try {
+    s = await (await fetch("/api/status")).json();
+  } catch {
+    el("hint").textContent = "servidor fora do ar";
+    return;
+  }
+  clipSeconds = s.clip_seconds || 60;
+
+  el("cams").innerHTML = s.total
+    ? s.cameras.map(camCard).join("")
+    : '<p class="empty">Nenhuma câmera cadastrada. Adicione a primeira abaixo.</p>';
+
+  el("save").disabled = s.ready === 0;
+  el("hint").textContent = s.total === 0
+    ? "cadastre uma câmera para começar a gravar"
+    : `${s.ready} de ${s.total} câmera(s) com ${clipSeconds.toFixed(0)}s prontos em memória`;
+}
+
+async function addCamera(event) {
+  event.preventDefault();
+  const url = el("url").value.trim();
+  if (!url) return;
+
+  el("addBtn").disabled = true;
+  show(el("addMsg"), "wait", "testando a conexão com a câmera…");
+  try {
+    const res = await fetch("/api/cameras", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || res.statusText);
+    show(el("addMsg"), "ok", `${body.name} adicionada e gravando`);
+    el("url").value = "";
+  } catch (e) {
+    show(el("addMsg"), "err", "não deu: " + e.message);
+  } finally {
+    el("addBtn").disabled = false;
+    refreshStatus();
+  }
+}
+
+async function saveReplay() {
+  el("save").disabled = true;
+  show(el("saveMsg"), "wait", "recortando e gravando…");
+  try {
+    const res = await fetch("/api/replays", { method: "POST" });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || res.statusText);
+
+    let text = `replay ${body.id}: ${body.clips.length} câmera(s) salvas`;
+    if (body.failures && body.failures.length) {
+      text += ` — fora: ${body.failures.map((f) => f.camera).join(", ")}`;
+    }
+    show(el("saveMsg"), "ok", text);
+    await refreshReplays();
+  } catch (e) {
+    show(el("saveMsg"), "err", "falhou: " + e.message);
+  } finally {
+    refreshStatus();
+  }
+}
+
+function replayCard(r) {
+  const when = new Date(r.created_at).toLocaleString("pt-BR");
+  const total = r.clips.reduce((sum, c) => sum + c.size, 0);
+
+  const videos = r.clips.map((c) => `
+    <figure>
+      <figcaption>
+        <span>${esc(c.camera)}${c.seconds ? ` · ${c.seconds.toFixed(0)}s` : ""} · ${c.audio ? esc(c.audio) : "sem áudio"}</span>
+        <a href="${esc(c.url)}" download>baixar</a>
+      </figcaption>
+      <video controls preload="metadata" src="${esc(c.url)}"></video>
+      <p class="fallback">Este navegador não decodificou o vídeo (H.265). Baixe e abra no VLC — o áudio vai no arquivo, quando a câmera publicar.</p>
+    </figure>`).join("");
+
+  const failures = r.failures && r.failures.length
+    ? `<p class="failures">Fora deste replay: ${r.failures.map((f) =>
+         `${esc(f.camera)} (${esc(f.reason)})`).join("; ")}</p>`
+    : "";
+
+  return `
+    <article class="replay">
+      <header>
+        <span class="id">${esc(r.id)}</span>
+        <span class="meta">${when} · ${r.clips.length} câmera(s) · ${mb(total)}</span>
+      </header>
+      <div class="videos">${videos}</div>
+      ${failures}
+    </article>`;
+}
+
+async function refreshReplays() {
+  const { replays } = await (await fetch("/api/replays")).json();
+  const box = el("replays");
+  if (!replays || replays.length === 0) {
+    box.innerHTML = '<p class="empty">Nenhum replay salvo ainda.</p>';
+    return;
+  }
+  box.innerHTML = replays.map(replayCard).join("");
+
+  // Um vídeo que o navegador não sabe decodificar dispara error no elemento.
+  box.querySelectorAll("video").forEach((v) => {
+    v.addEventListener("error", () => {
+      v.style.display = "none";
+      v.parentElement.querySelector(".fallback").style.display = "block";
+    });
+  });
+}
+
+el("add").addEventListener("submit", addCamera);
+el("save").addEventListener("click", saveReplay);
+refreshStatus();
+refreshReplays();
+setInterval(refreshStatus, 1000);
+</script>
+</body>
+</html>

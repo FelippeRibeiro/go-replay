@@ -1,0 +1,12 @@
+# Lista de câmeras: contém as credenciais RTSP, nunca deve ir para o repositório.
+cams.txt
+
+# Vídeos gravados.
+replay/
+
+# Binários compilados.
+/go-replay
+/server
+/record
+/discover
+/inspect
