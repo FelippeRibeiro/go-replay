@@ -2,7 +2,7 @@
 cams.txt
 
 # Vídeos gravados.
-replay/
+./replay/
 
 # Binários compilados.
 /go-replay
