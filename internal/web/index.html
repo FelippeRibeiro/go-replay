@@ -5,110 +5,190 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>go-replay</title>
 <style>
-  :root { color-scheme: dark; }
+  :root {
+    color-scheme: dark;
+    --bg: #0c0e12;
+    --panel: #151820;
+    --line: #262c38;
+    --text: #e8eaee;
+    --muted: #8b929c;
+    --green: #22c55e;
+    --blue: #3f8cff;
+    --warn: #f59e0b;
+    --err: #fca5a5;
+  }
   * { box-sizing: border-box; }
   body {
-    margin: 0; padding: 32px 24px; font: 15px/1.5 system-ui, sans-serif;
-    background: #0f1115; color: #e6e8eb;
+    margin: 0; font: 15px/1.5 system-ui, sans-serif;
+    background: var(--bg); color: var(--text);
   }
-  main { max-width: 980px; margin: 0 auto; }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  .sub { color: #8b929c; margin: 0 0 24px; }
-  h2 { font-size: 15px; margin: 32px 0 12px; color: #8b929c; font-weight: 600; }
+  main { max-width: 920px; margin: 0 auto; padding: 20px 20px 48px; }
 
-  .panel { background: #171a21; border: 1px solid #242a34; border-radius: 10px; padding: 18px; }
-  .panel + .panel { margin-top: 14px; }
+  .top {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; margin-bottom: 22px;
+  }
+  .top h1 { font-size: 22px; margin: 0; letter-spacing: -0.03em; }
+  .top p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  .icon {
+    width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--panel); color: var(--text); cursor: pointer;
+    display: grid; place-items: center; padding: 0;
+  }
+  .icon:hover { border-color: #3a4354; }
+  .icon svg { width: 18px; height: 18px; }
 
-  .cams { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
-  .cam { background: #171a21; border: 1px solid #242a34; border-radius: 10px; padding: 16px; }
-  .cam.on { border-color: #1f3d2b; }
-  .cam h3 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 8px; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #6b7280; flex: none; }
-  .dot.on { background: #22c55e; }
-  .dot.warn { background: #f59e0b; }
-  .cam .addr { color: #8b929c; font-size: 12px; word-break: break-all; margin: 4px 0 12px; }
-  .cam dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0; font-size: 13px; }
-  .cam dt { color: #8b929c; }
-  .cam dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
-  .bar { height: 4px; background: #242a34; border-radius: 2px; margin-top: 12px; overflow: hidden; }
-  .bar > i { display: block; height: 100%; width: 0; background: #22c55e; transition: width .4s; }
-  .cam .err { color: #fca5a5; font-size: 12px; margin: 8px 0 0; }
+  .status-row {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin-bottom: 14px; color: var(--muted); font-size: 13px;
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px; border-radius: 999px; background: #1c212b; color: var(--text);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #6b7280; flex: none; }
+  .dot.on { background: var(--green); }
+  .dot.warn { background: var(--warn); }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+  .save-panel { text-align: center; padding: 22px 18px; }
+  .save-panel p { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+
+  h2 { font-size: 13px; margin: 28px 0 10px; color: var(--muted); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+
+  button {
+    padding: 11px 18px; font: 600 14px system-ui, sans-serif;
+    color: #04130a; background: var(--green); border: 0; border-radius: 8px; cursor: pointer;
+  }
+  button.wide { width: 100%; padding: 15px; font-size: 16px; }
+  button.ghost { background: #2b313b; color: var(--text); }
+  button:disabled { background: #2b313b; color: #6b7280; cursor: not-allowed; }
+  button:not(:disabled):hover { filter: brightness(1.1); }
 
   form { display: flex; gap: 10px; flex-wrap: wrap; }
   input[type=text] {
-    flex: 1 1 320px; padding: 11px 13px; font: 14px ui-monospace, monospace;
-    color: #e6e8eb; background: #0f1115; border: 1px solid #2b313b; border-radius: 8px;
+    flex: 1 1 240px; padding: 11px 13px; font: 14px ui-monospace, monospace;
+    color: var(--text); background: #0c0e12; border: 1px solid #2b313b; border-radius: 8px;
   }
-  input[type=text]:focus { outline: none; border-color: #3f8cff; }
-  button {
-    padding: 11px 18px; font: 600 14px system-ui, sans-serif;
-    color: #04130a; background: #22c55e; border: 0; border-radius: 8px; cursor: pointer;
-  }
-  button.wide { width: 100%; padding: 14px; font-size: 16px; }
-  button.ghost { background: #2b313b; color: #e6e8eb; }
-  button:disabled { background: #2b313b; color: #6b7280; cursor: not-allowed; }
-  button:not(:disabled):hover { filter: brightness(1.12); }
+  input[type=text]:focus { outline: none; border-color: var(--blue); }
 
   .msg { margin-top: 12px; padding: 11px 14px; border-radius: 8px; font-size: 14px; display: none; }
   .msg.ok { display: block; background: #0d2f1b; color: #86efac; }
-  .msg.err { display: block; background: #3b1113; color: #fca5a5; }
+  .msg.err { display: block; background: #3b1113; color: var(--err); }
   .msg.wait { display: block; background: #1d2430; color: #cbd5e1; }
 
-  .hint { color: #8b929c; font-size: 13px; margin: 10px 0 0; }
-  .replay { background: #171a21; border: 1px solid #242a34; border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+  .hint { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+  .empty { color: var(--muted); }
+
+  .replay { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
   .replay header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
   .replay .id { font-weight: 600; font-family: ui-monospace, monospace; }
-  .replay .meta { color: #8b929c; font-size: 13px; }
-  .videos { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .replay .meta { color: var(--muted); font-size: 13px; }
+  .videos { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
   .videos figure { margin: 0; }
-  .videos figcaption { font-size: 13px; color: #8b929c; margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; }
+  .videos figcaption { font-size: 13px; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; }
   video { width: 100%; border-radius: 6px; background: #000; display: block; }
   .fallback { display: none; font-size: 12px; color: #fbbf24; margin: 6px 0 0; }
-  .failures { color: #fca5a5; font-size: 13px; margin: 12px 0 0; }
+  .failures { color: var(--err); font-size: 13px; margin: 12px 0 0; }
   a { color: #7dd3fc; }
-  .empty { color: #8b929c; }
-  .found { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.62);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 24px 16px; overflow: auto; z-index: 20;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    width: min(860px, 100%); background: #12151c; border: 1px solid var(--line);
+    border-radius: 14px; padding: 20px 20px 22px; margin: auto;
+    box-shadow: 0 24px 64px rgba(0,0,0,.45);
+  }
+  .modal header {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; margin-bottom: 16px;
+  }
+  .modal header h2 { margin: 0; font-size: 17px; text-transform: none; letter-spacing: 0; color: var(--text); }
+  .section-title { font-size: 13px; color: var(--muted); font-weight: 600; margin: 18px 0 10px; }
+
+  .cams { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .cam { background: #0c0e12; border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .cam.on { border-color: #1f3d2b; }
+  .cam h3 { margin: 0; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .cam .addr { color: var(--muted); font-size: 12px; word-break: break-all; margin: 4px 0 10px; }
+  .cam dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0; font-size: 13px; }
+  .cam dt { color: var(--muted); }
+  .cam dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  .bar { height: 4px; background: #242a34; border-radius: 2px; margin-top: 10px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--green); }
+  .cam .err { color: var(--err); font-size: 12px; margin: 8px 0 0; }
+
+  .found { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
   .found article {
     display: flex; justify-content: space-between; align-items: center; gap: 12px;
-    background: #0f1115; border: 1px solid #2b313b; border-radius: 8px; padding: 10px 12px;
+    background: #0c0e12; border: 1px solid #2b313b; border-radius: 8px; padding: 10px 12px;
   }
-  .found .meta { font-size: 13px; color: #8b929c; }
+  .found .meta { font-size: 13px; color: var(--muted); }
   .found .url { font-family: ui-monospace, monospace; font-size: 13px; word-break: break-all; }
   .found button { padding: 7px 12px; font-size: 13px; }
 </style>
 </head>
 <body>
 <main>
-  <h1>go-replay</h1>
-  <p class="sub">Cada câmera mantém os últimos minutos em memória. O botão salva o trecho final de todas de uma vez.</p>
+  <div class="top">
+    <div>
+      <h1>go-replay</h1>
+      <p>Salva o último minuto das câmeras e deixa o arquivo pronto para baixar.</p>
+    </div>
+    <button type="button" class="icon" id="openSettings" title="Câmeras e varredura" aria-label="Configurações">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.7 1 1.2 1.7 1.3H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.4 1z"/>
+      </svg>
+    </button>
+  </div>
 
-  <h2>Câmeras</h2>
-  <div class="cams" id="cams"></div>
+  <div class="status-row" id="statusRow">
+    <span class="pill"><span class="dot" id="liveDot"></span><span id="liveLabel">sem câmeras</span></span>
+    <span id="hint">abra as configurações para cadastrar</span>
+  </div>
 
-  <section class="panel" style="margin-top:14px">
-    <form id="add">
-      <input type="text" id="url" placeholder="rtsp://usuario:senha@192.168.1.8:554/onvif1" autocomplete="off" spellcheck="false">
-      <button type="submit" class="ghost" id="addBtn">Adicionar câmera</button>
-    </form>
-    <form id="discover" style="margin-top:10px">
-      <input type="text" id="cidr" placeholder="rede (opcional, ex: 192.168.1.0/24)" autocomplete="off" spellcheck="false">
-      <button type="submit" class="ghost" id="discoverBtn">Procurar na rede</button>
-    </form>
-    <p class="hint">A varredura acha o host e a porta RTSP, não a senha nem o caminho do stream
-       (<code>/onvif1</code>). Complete a URL antes de adicionar. Sem CIDR, usa as redes desta máquina.</p>
-    <div class="msg" id="addMsg"></div>
-    <div class="found" id="found"></div>
-  </section>
-
-  <section class="panel">
+  <section class="panel save-panel">
     <button class="wide" id="save" disabled>Salvar replay</button>
-    <p class="hint" id="hint">&nbsp;</p>
+    <p>Recorta o trecho final de todas as câmeras prontas e gera uma pasta com os MP4.</p>
     <div class="msg" id="saveMsg"></div>
   </section>
 
-  <h2>Replays salvos</h2>
+  <h2>Arquivos</h2>
   <div id="replays"><p class="empty">Nenhum replay salvo ainda.</p></div>
 </main>
+
+<div class="overlay" id="settings" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+  <div class="modal">
+    <header>
+      <h2 id="settingsTitle">Câmeras e varredura</h2>
+      <button type="button" class="ghost" id="closeSettings">Fechar</button>
+    </header>
+
+    <p class="section-title">Câmeras em memória</p>
+    <div class="cams" id="cams"></div>
+
+    <p class="section-title">Adicionar</p>
+    <form id="add">
+      <input type="text" id="url" placeholder="rtsp://usuario:senha@192.168.1.8:554/onvif1" autocomplete="off" spellcheck="false">
+      <button type="submit" class="ghost" id="addBtn">Adicionar</button>
+    </form>
+    <p class="hint">A conexão é testada antes de salvar. As câmeras ficam em <code>cams.txt</code>.</p>
+
+    <p class="section-title">Procurar na rede</p>
+    <form id="discover">
+      <input type="text" id="cidr" placeholder="rede opcional, ex: 192.168.1.0/24" autocomplete="off" spellcheck="false">
+      <button type="submit" class="ghost" id="discoverBtn">Varrer</button>
+    </form>
+    <p class="hint">Acha host e porta, não a senha nem o caminho (<code>/onvif1</code>). Use o resultado no campo acima.</p>
+    <div class="msg" id="addMsg"></div>
+    <div class="found" id="found"></div>
+  </div>
+</div>
 
 <script>
 const el = (id) => document.getElementById(id);
@@ -121,6 +201,13 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
 function show(box, kind, text) {
   box.className = "msg " + kind;
   box.textContent = text;
+}
+
+function openSettings() {
+  el("settings").classList.add("open");
+}
+function closeSettings() {
+  el("settings").classList.remove("open");
 }
 
 function camCard(cam) {
@@ -153,6 +240,8 @@ async function refreshStatus() {
     s = await (await fetch("/api/status")).json();
   } catch {
     el("hint").textContent = "servidor fora do ar";
+    el("liveLabel").textContent = "offline";
+    el("liveDot").className = "dot";
     return;
   }
   clipSeconds = s.clip_seconds || 60;
@@ -162,9 +251,13 @@ async function refreshStatus() {
     : '<p class="empty">Nenhuma câmera cadastrada. Adicione a primeira abaixo.</p>';
 
   el("save").disabled = s.ready === 0;
+  el("liveDot").className = "dot " + (s.ready > 0 ? "on" : s.total ? "warn" : "");
+  el("liveLabel").textContent = s.total
+    ? `${s.ready}/${s.total} pronta(s)`
+    : "sem câmeras";
   el("hint").textContent = s.total === 0
-    ? "cadastre uma câmera para começar a gravar"
-    : `${s.ready} de ${s.total} câmera(s) com ${clipSeconds.toFixed(0)}s prontos em memória`;
+    ? "abra as configurações para cadastrar"
+    : `${s.ready} de ${s.total} com ${clipSeconds.toFixed(0)}s em memória`;
 }
 
 async function addCamera(event) {
@@ -224,7 +317,7 @@ function replayCard(r) {
         <a href="${esc(c.url)}" download>baixar</a>
       </figcaption>
       <video controls preload="metadata" src="${esc(c.url)}"></video>
-      <p class="fallback">Este navegador não decodificou o vídeo (H.265). Baixe e abra no VLC — o áudio vai no arquivo, quando a câmera publicar.</p>
+      <p class="fallback">Este navegador não decodificou o vídeo (H.265). Baixe e abra no VLC.</p>
     </figure>`).join("");
 
   const failures = r.failures && r.failures.length
@@ -251,8 +344,6 @@ async function refreshReplays() {
     return;
   }
   box.innerHTML = replays.map(replayCard).join("");
-
-  // Um vídeo que o navegador não sabe decodificar dispara error no elemento.
   box.querySelectorAll("video").forEach((v) => {
     v.addEventListener("error", () => {
       v.style.display = "none";
@@ -318,6 +409,14 @@ function useFound(event) {
   el("url").select();
 }
 
+el("openSettings").addEventListener("click", openSettings);
+el("closeSettings").addEventListener("click", closeSettings);
+el("settings").addEventListener("click", (e) => {
+  if (e.target === el("settings")) closeSettings();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeSettings();
+});
 el("add").addEventListener("submit", addCamera);
 el("discover").addEventListener("submit", discoverCameras);
 el("found").addEventListener("click", useFound);
