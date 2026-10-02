@@ -33,11 +33,11 @@ func main() {
 }
 
 func run(cidrs, portList string, timeout time.Duration, workers int, asJSON bool) error {
-	prefixes, err := resolvePrefixes(cidrs)
+	prefixes, err := discovery.ResolvePrefixes(cidrs)
 	if err != nil {
 		return err
 	}
-	ports, err := parsePorts(portList)
+	ports, err := discovery.ParsePorts(portList)
 	if err != nil {
 		return err
 	}
@@ -107,52 +107,6 @@ func progressPrinter() func(done, total int) {
 		last.Store(now)
 		fmt.Fprintf(os.Stderr, "\r\033[Ksondando %d/%d", done, total)
 	}
-}
-
-func resolvePrefixes(cidrs string) ([]netip.Prefix, error) {
-	if strings.TrimSpace(cidrs) == "" {
-		prefixes, err := discovery.LocalPrefixes()
-		if err != nil {
-			return nil, err
-		}
-		if len(prefixes) == 0 {
-			return nil, fmt.Errorf("nenhuma rede local encontrada; informe -cidr")
-		}
-		return prefixes, nil
-	}
-
-	var out []netip.Prefix
-	for _, raw := range strings.Split(cidrs, ",") {
-		raw = strings.TrimSpace(raw)
-		if raw == "" {
-			continue
-		}
-		prefix, err := netip.ParsePrefix(raw)
-		if err != nil {
-			return nil, fmt.Errorf("cidr inválido %q: %w", raw, err)
-		}
-		out = append(out, prefix.Masked())
-	}
-	return out, nil
-}
-
-func parsePorts(list string) ([]int, error) {
-	var out []int
-	for _, raw := range strings.Split(list, ",") {
-		raw = strings.TrimSpace(raw)
-		if raw == "" {
-			continue
-		}
-		port, err := strconv.Atoi(raw)
-		if err != nil || port < 1 || port > 65535 {
-			return nil, fmt.Errorf("porta inválida %q", raw)
-		}
-		out = append(out, port)
-	}
-	if len(out) == 0 {
-		return nil, fmt.Errorf("nenhuma porta informada")
-	}
-	return out, nil
 }
 
 func joinInts(values []int) string {

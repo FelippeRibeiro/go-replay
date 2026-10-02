@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/FelippeRibeiro/go-replay/internal/replay"
@@ -23,6 +24,7 @@ type Server struct {
 	manager  *replay.Manager
 	store    *replay.Store
 	clipSpan time.Duration
+	scan     sync.Mutex
 }
 
 func NewServer(manager *replay.Manager, store *replay.Store, clipSpan time.Duration) *Server {
@@ -36,6 +38,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/status", s.handleStatus)
 	mux.HandleFunc("GET /api/cameras", s.handleCameras)
 	mux.HandleFunc("POST /api/cameras", s.handleAddCamera)
+	mux.HandleFunc("POST /api/discover", s.handleDiscover)
 	mux.HandleFunc("GET /api/replays", s.handleReplays)
 	mux.HandleFunc("POST /api/replays", s.handleCreateReplay)
 	mux.Handle("GET /clips/", http.StripPrefix("/clips/",

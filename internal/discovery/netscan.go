@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"strconv"
+	"strings"
 )
 
 // MaxHosts limita quantos endereços um prefixo pode gerar, para evitar que um
@@ -74,4 +76,63 @@ func Hosts(prefix netip.Prefix) ([]netip.Addr, error) {
 		addrs = addrs[1 : len(addrs)-1]
 	}
 	return addrs, nil
+}
+
+// ResolvePrefixes interpreta uma lista de CIDRs separados por vírgula.
+// Lista vazia usa as redes das interfaces locais.
+func ResolvePrefixes(list string) ([]netip.Prefix, error) {
+	if strings.TrimSpace(list) == "" {
+		prefixes, err := LocalPrefixes()
+		if err != nil {
+			return nil, err
+		}
+		if len(prefixes) == 0 {
+			return nil, fmt.Errorf("nenhuma rede local encontrada; informe o CIDR")
+		}
+		return prefixes, nil
+	}
+	return ParseCIDRs(list)
+}
+
+// ParseCIDRs lê uma lista "192.168.1.0/24,10.0.0.0/24".
+func ParseCIDRs(list string) ([]netip.Prefix, error) {
+	var out []netip.Prefix
+	for _, raw := range strings.Split(list, ",") {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		prefix, err := netip.ParsePrefix(raw)
+		if err != nil {
+			return nil, fmt.Errorf("cidr inválido %q: %w", raw, err)
+		}
+		if !prefix.Addr().Is4() {
+			return nil, fmt.Errorf("%s: apenas IPv4 é suportado", prefix)
+		}
+		out = append(out, prefix.Masked())
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("nenhum CIDR informado")
+	}
+	return out, nil
+}
+
+// ParsePorts lê uma lista "554,8554".
+func ParsePorts(list string) ([]int, error) {
+	var out []int
+	for _, raw := range strings.Split(list, ",") {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		port, err := strconv.Atoi(raw)
+		if err != nil || port < 1 || port > 65535 {
+			return nil, fmt.Errorf("porta inválida %q", raw)
+		}
+		out = append(out, port)
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("nenhuma porta informada")
+	}
+	return out, nil
 }

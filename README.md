@@ -102,6 +102,7 @@ Permissão do arquivo criado pela API: `0600`.
 | `GET` | `/api/status` | Câmeras, buffer, quantas já têm o trecho pronto |
 | `GET` | `/api/cameras` | Lista de câmeras |
 | `POST` | `/api/cameras` | `{"url":"rtsp://…"}` — testa, persiste, começa a gravar |
+| `POST` | `/api/discover` | Varre a LAN (`{"cidr":"192.168.1.0/24"}` opcional). Acha host/porta, não senha nem `/onvif1` |
 | `GET` | `/api/replays` | Replays salvos, do mais recente ao mais antigo |
 | `POST` | `/api/replays` | Recorta o trecho de todas e grava uma pasta nova |
 | `GET` | `/clips/<id>/<arquivo>` | Arquivo MP4 |
@@ -113,7 +114,7 @@ cmd/server          HTTP, flags, ciclo de vida
 internal/web        rotas e a página embutida
 internal/replay     catálogo, buffer, recorte, MP4, reconexão
 internal/camera     sessão RTSP (gortsplib), H.264/H.265, G.711/AAC
-internal/discovery  varredura de rede (só o comando discover)
+internal/discovery  varredura de rede (comando discover e POST /api/discover)
 internal/cli        URL, senha, mensagens de erro da câmera
 ```
 

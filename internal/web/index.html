@@ -67,6 +67,14 @@
   .failures { color: #fca5a5; font-size: 13px; margin: 12px 0 0; }
   a { color: #7dd3fc; }
   .empty { color: #8b929c; }
+  .found { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .found article {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    background: #0f1115; border: 1px solid #2b313b; border-radius: 8px; padding: 10px 12px;
+  }
+  .found .meta { font-size: 13px; color: #8b929c; }
+  .found .url { font-family: ui-monospace, monospace; font-size: 13px; word-break: break-all; }
+  .found button { padding: 7px 12px; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -82,9 +90,14 @@
       <input type="text" id="url" placeholder="rtsp://usuario:senha@192.168.1.8:554/onvif1" autocomplete="off" spellcheck="false">
       <button type="submit" class="ghost" id="addBtn">Adicionar câmera</button>
     </form>
-    <p class="hint">A conexão é testada antes de salvar, então isso leva alguns segundos.
-       As câmeras ficam em <code>cams.txt</code> na raiz do projeto.</p>
+    <form id="discover" style="margin-top:10px">
+      <input type="text" id="cidr" placeholder="rede (opcional, ex: 192.168.1.0/24)" autocomplete="off" spellcheck="false">
+      <button type="submit" class="ghost" id="discoverBtn">Procurar na rede</button>
+    </form>
+    <p class="hint">A varredura acha o host e a porta RTSP, não a senha nem o caminho do stream
+       (<code>/onvif1</code>). Complete a URL antes de adicionar. Sem CIDR, usa as redes desta máquina.</p>
     <div class="msg" id="addMsg"></div>
+    <div class="found" id="found"></div>
   </section>
 
   <section class="panel">
@@ -248,7 +261,66 @@ async function refreshReplays() {
   });
 }
 
+async function discoverCameras(event) {
+  event.preventDefault();
+  el("discoverBtn").disabled = true;
+  el("found").innerHTML = "";
+  show(el("addMsg"), "wait", "varrendo a rede… isso pode levar uns segundos");
+  try {
+    const res = await fetch("/api/discover", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cidr: el("cidr").value.trim() }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || res.statusText);
+
+    const nets = (body.networks || []).join(", ") || "redes locais";
+    if (!body.devices || body.devices.length === 0) {
+      show(el("addMsg"), "err", `nada em ${nets} (${body.seconds.toFixed(1)}s). Tente outro CIDR.`);
+      return;
+    }
+    let text = `${body.devices.length} dispositivo(s) em ${nets} · ${body.seconds.toFixed(1)}s`;
+    if (body.warning) text += " — " + body.warning;
+    show(el("addMsg"), "ok", text);
+    el("found").innerHTML = body.devices.map(foundCard).join("");
+  } catch (e) {
+    show(el("addMsg"), "err", "varredura falhou: " + e.message);
+  } finally {
+    el("discoverBtn").disabled = false;
+  }
+}
+
+function foundCard(d) {
+  const auth = d.requires_auth ? "exige senha" : "aberto";
+  const media = d.medias && d.medias.length ? d.medias.join(", ") : "trilhas ocultas";
+  const payload = JSON.stringify({ url: d.url, requires_auth: d.requires_auth });
+  return `
+    <article>
+      <div>
+        <div class="url">${esc(d.url)}</div>
+        <div class="meta">${esc(d.address)} · ${auth} · ${esc(media)}${d.server ? " · " + esc(d.server) : ""} · ${d.rtt_ms.toFixed(0)} ms</div>
+      </div>
+      <button type="button" class="ghost" data-device="${esc(payload)}">Usar</button>
+    </article>`;
+}
+
+function useFound(event) {
+  const btn = event.target.closest("[data-device]");
+  if (!btn) return;
+  const d = JSON.parse(btn.getAttribute("data-device"));
+  let url = d.url;
+  if (d.requires_auth) {
+    url = url.replace("rtsp://", "rtsp://usuario:senha@");
+  }
+  el("url").value = url;
+  el("url").focus();
+  el("url").select();
+}
+
 el("add").addEventListener("submit", addCamera);
+el("discover").addEventListener("submit", discoverCameras);
+el("found").addEventListener("click", useFound);
 el("save").addEventListener("click", saveReplay);
 refreshStatus();
 refreshReplays();
